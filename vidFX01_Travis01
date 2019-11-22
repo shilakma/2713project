@@ -1,0 +1,97 @@
+clc;
+clear all;
+close all;
+fileName = 'SecurityFootage01.mov';
+
+%% - This reads in the video file referenced by fileName (^above)
+%% - and splits it into a batch of .png image files in the project
+%% - directory.
+%% - ///////
+videoObject = VideoReader(fileName);
+numberOfFrames = videoObject.NumberOfFrames;
+%numberOfFrames = 400;
+vidHeight = videoObject.Height;
+vidWidth = videoObject.Width;
+numberOfFramesWritten = 0;
+
+for frame = 1:numberOfFrames;
+    filename=strcat('frame',num2str(frame),'.png');
+    thisFrame = read(videoObject, frame);
+    %imshow(thisFrame);
+    %imwrite(thisFrame,filename);
+    
+    hImage = subplot(2, 2, 1);
+	image(thisFrame);
+	caption = sprintf('Frame %4d of %d.', frame, numberOfFrames);
+	title("Original Video");
+	drawnow; 
+		
+	numberOfFramesWritten = numberOfFramesWritten + 1;
+		
+    alpha = .97;
+	if frame == 1
+		Background = thisFrame;
+    else
+		Background = (1-alpha)* thisFrame + alpha * Background;
+    end
+	subplot(2, 2, 3);
+	imshow(Background);
+	title('Adaptive Background');
+	differenceImage = uint8(Background)-thisFrame;
+	grayImage = rgb2gray(differenceImage); 
+	thresholdLevel = graythresh(grayImage); 
+	binaryImage = imbinarize( grayImage, thresholdLevel); 
+	subplot(2, 2, 4);
+	imshow(binaryImage);
+	title('Binarized Difference Image');
+    imshow(imcomplement(differenceImage).*(uint8(binaryImage)));
+    title('diff comp');
+    
+    %% - Store Layers as Matrices
+    backgroundFrames{frame} = Background;
+    differenceFrames{frame} = differenceImage;
+    differenceCompFrames{frame} = imcomplement(differenceImage).*(uint8(binaryImage));
+    grayFrames{frame} = grayImage;
+    thresholdFrames{frame} = thresholdLevel;
+    binaryFrames{frame} = binaryImage;
+    
+    %%imshow(differenceCompFrames{frame});
+    
+%     %% - To Image File
+%     filename=strcat('frameNew',num2str(frame),'.png');
+%     %b = read(frames{img}, img);
+%     imwrite(Background,filename);
+end
+
+vidWrite(backgroundFrames, numberOfFrames);
+vidWrite(differenceFrames, numberOfFrames);
+vidWrite(differenceCompFrames, numberOfFrames);
+vidWrite(grayFrames, numberOfFrames);
+%vidWrite(thresholdFrames, numberOfFrames);
+
+
+function vw = vidWrite (matrix1, numberOfFrames)
+%% - Back to Single Video File
+%% - ///////
+ % create the video writer with 1 fps (must be .avi)
+ filename = inputname(1);
+ writerObj = VideoWriter(filename);
+ writerObj.FrameRate = 25;
+ % set the seconds per image
+ secsPerImage = 1;
+ % open the video writer
+ open(writerObj);
+ % write the frames to the video
+ for n=1:numberOfFrames;
+     % convert the image to a frame
+     %frame = backgroundFrames(n);
+     for v=1:secsPerImage 
+         writeVideo(writerObj, matrix1{n});
+     end
+ end
+ % close the writer object
+ close(writerObj);
+ %% clean-up
+clear n;
+clear v;
+end
